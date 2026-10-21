@@ -1,0 +1,1111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>にゃん訳</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐱</text></svg>">
+<meta name="description" content="きつい言葉をかわいいねこ語に言い換えるツール。既定ではブラウザ内で変換し、入力文は外に出ません。自分の Gemini / Claude API キーでも使えます。">
+<style>
+  :root {
+    --bg: #fff8ef;
+    --card: #ffffff;
+    --text: #3b2f2f;
+    --muted: #8a7a72;
+    --accent: #f08aa6;
+    --accent-strong: #d9607f;
+    --accent-soft: #ffe3ea;
+    --border: #f0dcd0;
+    --ok: #4caf7d;
+    --warn: #e0a400;
+    --err: #d9534f;
+    --shadow: 0 6px 24px rgba(120, 80, 60, 0.08);
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1a1c;
+      --card: #2a2325;
+      --text: #f4e9e6;
+      --muted: #b4a39d;
+      --accent: #f08aa6;
+      --accent-strong: #ff9fb8;
+      --accent-soft: #4a2f38;
+      --border: #3e3235;
+      --shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  header { text-align: center; margin-bottom: 20px; }
+  header h1 { font-size: 2rem; margin: 0 0 4px; letter-spacing: 0.04em; }
+  header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .banner {
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    display: none;
+  }
+  .banner.show { display: block; }
+  .banner.warn { background: #fff4d6; color: #6b4f00; border: 1px solid #f3dc9a; }
+  .banner.err { background: #ffe2e0; color: #7a1f1c; border: 1px solid #f5b5b2; }
+  @media (prefers-color-scheme: dark) {
+    .banner.warn { background: #3d3214; color: #ffe29a; border-color: #6b5a22; }
+    .banner.err { background: #44201f; color: #ffb3b0; border-color: #7a3c3a; }
+  }
+  .banner code { font-size: 0.85em; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1 1 200px; }
+
+  select, textarea, button, input {
+    font: inherit;
+    color: inherit;
+  }
+  select, input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    outline: none;
+  }
+  input[type="password"]:focus, input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    outline: none;
+  }
+  textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-weight: 600;
+    transition: transform 0.05s ease, opacity 0.2s ease;
+  }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
+  .btn-ghost { background: transparent; color: var(--accent-strong); border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: var(--accent-soft); }
+  .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.ok { background: rgba(76,175,125,0.15); color: var(--ok); }
+
+  .progress {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+    transition: width 0.2s ease;
+  }
+  .status { font-size: 0.85rem; color: var(--muted); margin-top: 6px; min-height: 1.3em; word-break: break-all; }
+  .status.err { color: var(--err); }
+  .status.ok { color: var(--ok); }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+  .chip:hover { background: var(--accent); color: #fff; }
+
+  .controls { margin-top: 12px; justify-content: space-between; }
+  .controls label { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .controls label select { width: auto; padding: 6px 10px; }
+
+  .output {
+    min-height: 90px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 1.1rem;
+    padding: 4px 2px;
+  }
+  .output.placeholder { color: var(--muted); font-size: 0.95rem; }
+  .paws { display: none; color: var(--accent); font-size: 1.2rem; letter-spacing: 0.3em; }
+  .paws.show { display: inline-block; }
+  .paws span { display: inline-block; animation: paw 1.2s infinite; }
+  .paws span:nth-child(2) { animation-delay: 0.2s; }
+  .paws span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes paw { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
+  .output-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .output-head h2 { margin: 0; }
+
+  footer { text-align: center; font-size: 0.8rem; color: var(--muted); margin-top: 24px; }
+  footer p { margin: 4px 0; }
+  footer a, footer button.link {
+    color: var(--accent-strong);
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    font-weight: 500;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .hint { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .hint a { color: var(--accent-strong); }
+
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 12px; background: var(--bg); }
+  .seg button { border: none; border-radius: 0; background: transparent; color: var(--muted); padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
+  .seg button.active { background: var(--accent); color: #fff; }
+  .seg button:disabled { opacity: 0.4; }
+  .check { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .check input { accent-color: var(--accent); }
+  .api-notice { margin: 0 0 12px; }
+  .field { margin-top: 10px; }
+  .field > label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>にゃん訳 🐾</h1>
+    <p id="tagline">きつい言葉を、かわいいねこ語に。入力文はブラウザの外に出ません。</p>
+  </header>
+
+  <div id="banner-file" class="banner warn">
+    <strong>file:// で開かれています。</strong> この開き方だとモデルのキャッシュが効かず、毎回ダウンロードになったり読み込みに失敗することがあります。
+    ターミナルで <code>cd ~/nyanyaku &amp;&amp; python3 -m http.server 8000</code> を実行し、<code>http://localhost:8000</code> を開くことをおすすめします。
+  </div>
+  <div id="banner-gpu" class="banner err">
+    <strong>このブラウザでは WebGPU が使えません。</strong> ブラウザ内で LLM を動かすには WebGPU が必要です。
+    macOS なら最新の Chrome / Edge、または Safari 17.4 以降でお試しください。Gemini / Claude API を使う場合は WebGPU は不要です。
+  </div>
+
+  <section class="card">
+    <h2>エンジン</h2>
+    <div class="seg" id="backend-seg" role="tablist" aria-label="変換エンジン">
+      <button type="button" data-backend="webllm" class="active">ブラウザ内 (WebLLM)</button>
+      <button type="button" data-backend="gemini">Gemini API</button>
+      <button type="button" data-backend="claude">Claude API</button>
+    </div>
+
+    <div id="panel-webllm">
+      <div class="row">
+        <div class="grow">
+          <select id="model-select" aria-label="使用するモデル"></select>
+        </div>
+        <span id="cache-badge" class="badge" hidden>ダウンロード済み</span>
+        <button id="load-btn" class="btn-primary">モデルを読み込む</button>
+      </div>
+      <div class="progress"><div id="progress-bar"></div></div>
+      <div id="model-status" class="status">モデルを選んで「モデルを読み込む」を押してください。初回はダウンロードに数分かかります。</div>
+    </div>
+
+    <div id="panel-api" hidden>
+      <div class="banner warn show api-notice">
+        <strong>このモードでは、入力文が <span id="api-vendor">Google</span> のサーバーに送信されます。</strong>
+        API キーはあなたのブラウザから直接 <span id="api-vendor2">Google</span> に送られ、このページの作者を含む第三者には渡りません。
+      </div>
+      <div class="field">
+        <label for="api-key">API キー</label>
+        <div class="row">
+          <div class="grow"><input type="password" id="api-key" autocomplete="off" spellcheck="false" placeholder="ここに API キーを貼り付け"></div>
+          <label class="check"><input type="checkbox" id="api-key-save"> このブラウザに保存</label>
+          <button id="api-key-clear" class="btn-ghost btn-sm" type="button">キーを消去</button>
+        </div>
+        <div class="hint">取得先: <a id="api-key-link" href="#" target="_blank" rel="noopener noreferrer"></a>。保存すると localStorage に平文で残るため、共用の端末では保存しないでください。</div>
+      </div>
+      <div class="field">
+        <label for="api-model">モデル</label>
+        <div class="row">
+          <div class="grow"><select id="api-model" aria-label="API で使うモデル"></select></div>
+          <button id="api-models-btn" class="btn-ghost btn-sm" type="button">モデル一覧を取得</button>
+        </div>
+      </div>
+      <div id="api-status" class="status"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>変換したい文</h2>
+    <textarea id="input" placeholder="例: お前マジで使えないな"></textarea>
+    <div class="chips" id="chips"></div>
+    <div class="row controls">
+      <label>にゃ度
+        <select id="level">
+          <option value="light">ひかえめ</option>
+          <option value="normal" selected>ふつう</option>
+          <option value="max">全力</option>
+        </select>
+      </label>
+      <div class="row">
+        <button id="stop-btn" class="btn-ghost" disabled>停止</button>
+        <button id="run-btn" class="btn-primary" disabled>にゃん訳する</button>
+      </div>
+    </div>
+    <div class="hint">Ctrl / ⌘ + Enter でも変換できます。</div>
+  </section>
+
+  <section class="card">
+    <div class="output-head">
+      <h2>にゃん訳 結果</h2>
+      <div class="row">
+        <span id="paws" class="paws" aria-hidden="true"><span>🐾</span><span>🐾</span><span>🐾</span></span>
+        <button id="copy-btn" class="btn-ghost btn-sm" disabled>コピー</button>
+      </div>
+    </div>
+    <div id="output" class="output placeholder">ここに、ねこ語になった文が出てきます。</div>
+  </section>
+
+  <footer>
+    <div id="footer-webllm">
+      <p>変換は WebLLM によってブラウザ内 (WebGPU) で行われ、入力文はどこにも送信されません。</p>
+      <p>初回のみ、モデルファイル (約 1〜2GB) を Hugging Face からダウンロードしてブラウザにキャッシュします。</p>
+      <p><button id="clear-cache" class="link">選択中モデルのキャッシュを削除</button></p>
+    </div>
+    <div id="footer-api" hidden>
+      <p>変換は <span id="footer-vendor">Google</span> の API で行われます。入力文はあなたのブラウザから直接 API に送信され、利用料金はあなたの API キーに課金されます。</p>
+      <p>「ブラウザ内 (WebLLM)」に切り替えると、文をどこにも送らずに変換できます。</p>
+    </div>
+  </footer>
+</div>
+
+<script type="module">
+  // ---------- 設定 ----------
+  const WEBLLM_URL = "https://esm.run/@mlc-ai/web-llm@0.2.86";
+  const MODELS = [
+    { id: "gemma-2-2b-jpn-it-q4f16_1-MLC",       label: "Gemma 2 2B 日本語版 (おすすめ・約1.9GB)" },
+    { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",   label: "Qwen2.5 1.5B (軽量・約1.6GB)" },
+    { id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",   label: "Qwen2.5 0.5B (最軽量・約0.9GB・品質低め)" },
+  ];
+  const STORAGE_KEY = "nyanyaku.model";
+  const LEVEL_KEY = "nyanyaku.level";
+  const BACKEND_KEY = "nyanyaku.backend";
+
+  // 外部 API (ユーザー自身のキーで、ブラウザから直接呼び出す)
+  const API_BACKENDS = {
+    gemini: {
+      vendor: "Google",
+      keyUrl: "https://aistudio.google.com/apikey",
+      keyLabel: "Google AI Studio",
+      keyStore: "nyanyaku.gemini.key",
+      modelStore: "nyanyaku.gemini.model",
+      // 2.5 系は 2026 年 9 月以降、新規キーでは使えない (404 になる) ので入れない
+      defaultModels: [
+        { id: "gemini-3.8-flash",      label: "Gemini 3.8 Flash (おすすめ)" },
+        { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite (最安)" },
+        { id: "gemini-4-argon",        label: "Gemini 4 Argon (最上位)" },
+      ],
+    },
+    claude: {
+      vendor: "Anthropic",
+      keyUrl: "https://platform.claude.com/settings/keys",
+      keyLabel: "Claude Console",
+      keyStore: "nyanyaku.claude.key",
+      modelStore: "nyanyaku.claude.model",
+      defaultModels: [
+        { id: "claude-opus-5-5",   label: "Claude Opus 5.5 (おすすめ)" },
+        { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
+        { id: "claude-haiku-5-5",  label: "Claude Haiku 5.5 (最安)" },
+      ],
+    },
+  };
+  const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+  const CLAUDE_BASE = "https://api.anthropic.com/v1";
+  const CLAUDE_VERSION = "2023-06-01";
+
+  const EXAMPLES = [
+    "お前マジで使えないな",
+    "は？ふざけんなよ",
+    "二度と話しかけてくるな",
+    "仕事が遅すぎて話にならない",
+  ];
+
+  const BASE_INSTRUCTION = `あなたは「にゃん訳」という変換器です。入力された日本語の文を、かわいい「ねこ語」に言い換えてください。
+
+ルール:
+- 文末は「にゃ」「にゃん」「にゃあ」などのねこ語にする
+- 乱暴・攻撃的・侮辱的な言葉は、やわらかくてポジティブな表現に置き換える（例:「バカ」→「おっちょこちょいさん」）
+- 元の文が伝えたい気持ち（不満・お願い・怒りなど）の核は残しつつ、相手を傷つけない言い方にする
+- 🐾 や 😺 などの絵文字は全体で1〜2個まで
+- 出力は変換後の文だけ。説明・前置き・引用符・「変換後:」などのラベルは絶対に付けない`;
+
+  const LEVELS = {
+    light: {
+      extra: "言い換えは最小限にして、主に文末だけをねこ語にしてください。絵文字は付けなくてかまいません。",
+      examples: [
+        ["お前マジで使えないな", "きみ、ちょっと苦手なことがあるみたいだにゃ。"],
+        ["うるさい、黙れ", "ちょっと静かにしてほしいにゃ。"],
+        ["なんでこんな簡単なこともできないんだよ", "これ、どうしてできなかったのかにゃ？"],
+      ],
+      maxTokens: 200,
+    },
+    normal: {
+      extra: "",
+      examples: [
+        ["お前マジで使えないな", "きみ、ちょっと苦手なことがあるだけにゃ。いっしょにがんばるにゃ🐾"],
+        ["うるさい、黙れ", "ちょっとだけ静かにしてほしいにゃ。おひるねの時間にゃん😺"],
+        ["なんでこんな簡単なこともできないんだよ", "これ、むずかしかったのかにゃ？ いっしょにやればきっとできるにゃ"],
+      ],
+      maxTokens: 256,
+    },
+    max: {
+      extra: "すべての文末をねこ語にし、「しっぽをふりふり」「ごろにゃん」などのねこの仕草も一言添えて、とことんかわいくしてください。",
+      examples: [
+        ["お前マジで使えないな", "きみは苦手なことがあるだけにゃん！ ボクといっしょにがんばれば、きっとできるようになるにゃ〜🐾 しっぽをふりふりして応援してるにゃ！"],
+        ["うるさい、黙れ", "ちょっとだけ静かにしてほしいにゃん…おひるねしたい気分なのにゃ😺 ごろにゃんして待ってるにゃ〜"],
+        ["なんでこんな簡単なこともできないんだよ", "これ、むずかしかったのかにゃ？ だいじょうぶにゃ、いっしょにやればぜったいできるにゃん！ 前足でぽんぽんして応援するにゃ〜🐾"],
+      ],
+      maxTokens: 320,
+    },
+  };
+
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
+  const modelSelect = $("model-select");
+  const cacheBadge = $("cache-badge");
+  const loadBtn = $("load-btn");
+  const progressBar = $("progress-bar");
+  const modelStatus = $("model-status");
+  const input = $("input");
+  const chips = $("chips");
+  const levelSelect = $("level");
+  const runBtn = $("run-btn");
+  const stopBtn = $("stop-btn");
+  const copyBtn = $("copy-btn");
+  const output = $("output");
+  const paws = $("paws");
+  const clearCacheBtn = $("clear-cache");
+  const backendSeg = $("backend-seg");
+  const panelWebLLM = $("panel-webllm");
+  const panelAPI = $("panel-api");
+  const apiKeyInput = $("api-key");
+  const apiKeySave = $("api-key-save");
+  const apiKeyClear = $("api-key-clear");
+  const apiKeyLink = $("api-key-link");
+  const apiModelSelect = $("api-model");
+  const apiModelsBtn = $("api-models-btn");
+  const apiStatus = $("api-status");
+  const tagline = $("tagline");
+
+  // ---------- 状態 ----------
+  let webllm = null;
+  let engine = null;
+  let loadedModelId = null;
+  let loading = false;
+  let generating = false;
+  let lastResult = "";
+  let backend = "webllm";            // "webllm" | "gemini" | "claude"
+  let abortCtrl = null;              // API 呼び出しの中断用
+  const apiKeys = { gemini: "", claude: "" };   // 保存しない場合はメモリ上だけ
+  const apiModels = { gemini: null, claude: null }; // API から取得したモデル一覧
+
+  // ---------- ユーティリティ ----------
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+
+  function setStatus(text, kind = "") {
+    modelStatus.textContent = text;
+    modelStatus.className = "status" + (kind ? " " + kind : "");
+  }
+  function setProgress(ratio) {
+    progressBar.style.width = Math.max(0, Math.min(1, ratio)) * 100 + "%";
+  }
+  function setOutput(text, placeholder = false) {
+    output.textContent = text;
+    output.classList.toggle("placeholder", placeholder);
+  }
+  function setApiStatus(text, kind = "") {
+    apiStatus.textContent = text;
+    apiStatus.className = "status" + (kind ? " " + kind : "");
+  }
+  function isApiBackend() { return backend === "gemini" || backend === "claude"; }
+  function currentApiKey() { return isApiBackend() ? (apiKeys[backend] || "").trim() : ""; }
+
+  function updateButtons() {
+    const webllmReady = !!engine && loadedModelId === modelSelect.value && !loading;
+    const apiReady = isApiBackend() && !!currentApiKey() && !!apiModelSelect.value;
+    const ready = isApiBackend() ? apiReady : webllmReady;
+    runBtn.disabled = !ready || generating;
+    stopBtn.disabled = !generating;
+    loadBtn.disabled = loading || generating;
+    modelSelect.disabled = loading || generating;
+    copyBtn.disabled = !lastResult;
+    loadBtn.textContent = loading ? "読み込み中…" : (webllmReady ? "読み込み済み" : "モデルを読み込む");
+    apiModelsBtn.disabled = generating || !currentApiKey();
+    for (const b of backendSeg.querySelectorAll("button")) {
+      if (!b.dataset.unavailable) b.disabled = generating;
+    }
+  }
+
+  function friendlyError(err) {
+    const msg = String(err && err.message ? err.message : err);
+    if (/WebGPU|navigator\.gpu|requestAdapter/i.test(msg)) {
+      return "WebGPU を初期化できませんでした。最新の Chrome / Edge で開いているか確認してください。";
+    }
+    if (/shader-f16|f16/i.test(msg)) {
+      return "この GPU / ブラウザは f16 シェーダーに対応していないようです。別のモデルを試すか、Chrome を最新にしてください。";
+    }
+    if (/out of memory|OOM|buffer size|exceeds/i.test(msg)) {
+      return "GPU メモリが足りないようです。より軽量なモデルに切り替えてみてください。";
+    }
+    if (/fetch|network|Failed to load|404|403/i.test(msg)) {
+      return "モデルのダウンロードに失敗しました。ネットワーク接続を確認して再試行してください。";
+    }
+    return "エラー: " + msg;
+  }
+
+  // LLM の出力がルールから外れたときの保険
+  function postProcess(text) {
+    let t = text.trim();
+    // 先頭のラベルを除去
+    t = t.replace(/^(変換後|出力|ねこ語|にゃん訳|結果)\s*[:：]\s*/u, "");
+    // 全体を囲む引用符を除去
+    t = t.replace(/^[「『"“]+/u, "").replace(/[」』"”]+$/u, "");
+    t = t.trim();
+    if (!t) return t;
+
+    // 文ごとに文末がねこ語になっているかチェック
+    const parts = t.split(/(?<=[。！？!?\n])/u);
+    const fixed = parts.map((seg) => {
+      const m = seg.match(/^(.*?)([\s。！？!?\n…〜～ー♪♡\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]*)$/su);
+      if (!m) return seg;
+      const body = m[1];
+      const tail = m[2] || "";
+      if (!body.trim()) return seg;
+      if (/(にゃ|にゃん|にゃあ|にゃー|にゃ〜|にゃ～)$/u.test(body)) return seg;
+      // 「だよ」「ね」などの終助詞は「にゃ」に置き換える
+      const stem = body.replace(/[よねぞぜさわ]$/u, "");
+      return stem + "にゃ" + tail;
+    });
+    let out = fixed.join("");
+    // 同じ絵文字・記号の連続を 1 つにまとめる
+    out = out.replace(/(\p{Extended_Pictographic}\uFE0F?)(?:\s*\1)+/gu, "$1");
+    // まったく同じ文の繰り返しを除去する
+    const seen = new Set();
+    out = out
+      .split(/(?<=[。！？!?\n])/u)
+      .filter((s) => { const k = s.trim(); if (!k) return true; if (seen.has(k)) return false; seen.add(k); return true; })
+      .join("");
+    return out.trim();
+  }
+
+  // API 用: システム指示と few-shot 例を分けて返す
+  function buildPrompt(text, levelKey) {
+    const level = LEVELS[levelKey] || LEVELS.normal;
+    const instruction = BASE_INSTRUCTION + (level.extra ? "\n- " + level.extra : "");
+    const turns = [];
+    for (const [q, a] of level.examples) {
+      turns.push({ role: "user", text: "入力: " + q });
+      turns.push({ role: "assistant", text: a });
+    }
+    turns.push({ role: "user", text: "入力: " + text });
+    return { instruction, turns };
+  }
+
+  function buildMessages(text, levelKey) {
+    const level = LEVELS[levelKey] || LEVELS.normal;
+    const instruction = BASE_INSTRUCTION + (level.extra ? "\n- " + level.extra : "");
+    const messages = [];
+    level.examples.forEach(([q, a], i) => {
+      const prefix = i === 0 ? instruction + "\n\n" : "";
+      messages.push({ role: "user", content: prefix + "入力: " + q });
+      messages.push({ role: "assistant", content: a });
+    });
+    messages.push({ role: "user", content: "入力: " + text });
+    return messages;
+  }
+
+  // ---------- モデル読み込み ----------
+  async function ensureWebLLM() {
+    if (webllm) return webllm;
+    setStatus("WebLLM ライブラリを読み込んでいます…");
+    webllm = await import(WEBLLM_URL);
+    return webllm;
+  }
+
+  async function refreshCacheBadge() {
+    cacheBadge.hidden = true;
+    try {
+      const lib = await ensureWebLLM();
+      const cached = await lib.hasModelInCache(modelSelect.value);
+      cacheBadge.hidden = !cached;
+      cacheBadge.classList.toggle("ok", cached);
+      return cached;
+    } catch {
+      return false;
+    }
+  }
+
+  async function loadModel() {
+    if (loading) return;
+    const modelId = modelSelect.value;
+    loading = true;
+    updateButtons();
+    setProgress(0);
+    try {
+      const lib = await ensureWebLLM();
+      const initProgressCallback = (p) => {
+        setProgress(p.progress || 0);
+        setStatus(p.text || "読み込み中…");
+      };
+      if (!engine) {
+        engine = await lib.CreateMLCEngine(modelId, { initProgressCallback });
+      } else {
+        engine.setInitProgressCallback(initProgressCallback);
+        await engine.reload(modelId);
+      }
+      loadedModelId = modelId;
+      setProgress(1);
+      setStatus("準備できました。文を入れて「にゃん訳する」を押してください。", "ok");
+      store.set(STORAGE_KEY, modelId);
+      refreshCacheBadge();
+    } catch (err) {
+      console.error(err);
+      loadedModelId = null;
+      setProgress(0);
+      setStatus(friendlyError(err), "err");
+    } finally {
+      loading = false;
+      updateButtons();
+    }
+  }
+
+  // ---------- 外部 API 呼び出し ----------
+  // Server-Sent Events を { event, data } 単位で順に返す
+  async function* readSSE(resp) {
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let event = "message";
+        const data = [];
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
+        }
+        if (data.length) yield { event, data: data.join("\n") };
+      }
+    }
+  }
+
+  async function readApiError(resp) {
+    let detail = "";
+    try {
+      const j = await resp.json();
+      detail = j?.error?.message || j?.message || JSON.stringify(j);
+    } catch {
+      try { detail = await resp.text(); } catch {}
+    }
+    const e = new Error(`HTTP ${resp.status}${detail ? ": " + detail : ""}`);
+    e.status = resp.status;
+    return e;
+  }
+
+  function friendlyApiError(err) {
+    if (err?.message === "timeout") return "90 秒以内に応答がありませんでした。ネットワークや API の状態を確認して、もう一度試してください。";
+    if (err?.name === "AbortError") return "停止しました。";
+    const st = err?.status;
+    const msg = String(err?.message || err);
+    if (st === 401 || st === 403) return "API キーが正しくないか、権限がありません。キーを確認してください。";
+    if (st === 404) return `このキーでは使えないモデルです (${isApiBackend() ? apiModelSelect.value : ""})。「モデル一覧を取得」を押し、${backend === "gemini" ? "gemini-3.8-flash など新しいモデル" : "別のモデル"}を選んでください。`;
+    if (st === 429) return "レート制限または残高不足です。少し待ってから再試行してください。";
+    if (st >= 500) return "API 側で一時的なエラーが起きています。少し待ってから再試行してください。";
+    if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return "API に接続できませんでした。ネットワーク接続を確認してください。";
+    return "エラー: " + msg;
+  }
+
+  function claudeHeaders(key, extraBetas = []) {
+    const h = {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": CLAUDE_VERSION,
+      // ブラウザから直接呼ぶために必要 (キーはユーザー自身のもの)
+      "anthropic-dangerous-direct-browser-access": "true",
+    };
+    if (extraBetas.length) h["anthropic-beta"] = extraBetas.join(",");
+    return h;
+  }
+
+  // 現行世代 (effort が使える) モデルか
+  const claudeIsModern = (m) => /^claude-(fable|mythos)-5|^claude-(opus|sonnet|haiku)-5|^claude-(opus|sonnet)-4-[6-9]/.test(m);
+  // サーバー側フォールバック ("default" 形式) に対応しているモデルか
+  const claudeHasFallback = (m) => /^claude-(fable-5-1|opus-5-5|opus-5|sonnet-5-5)$/.test(m);
+
+  async function* streamClaude(key, model, prompt, signal) {
+    const body = {
+      model,
+      max_tokens: 4096,
+      stream: true,
+      system: prompt.instruction,
+      messages: prompt.turns.map((t) => ({ role: t.role, content: t.text })),
+    };
+    const betas = [];
+    if (claudeIsModern(model)) body.output_config = { effort: "low" };
+    if (claudeHasFallback(model)) {
+      // 安全分類器が応答を拒否したとき、別モデルに自動で振り替える
+      body.fallbacks = "default";
+      betas.push("server-side-fallback-2026-07-01");
+    }
+    const resp = await fetch(`${CLAUDE_BASE}/messages`, {
+      method: "POST", headers: claudeHeaders(key, betas), body: JSON.stringify(body), signal,
+    });
+    if (!resp.ok) throw await readApiError(resp);
+    let stopReason = null;
+    for await (const { event, data } of readSSE(resp)) {
+      if (event === "error") {
+        let msg = data;
+        try { msg = JSON.parse(data)?.error?.message || data; } catch {}
+        throw new Error(msg);
+      }
+      let j;
+      try { j = JSON.parse(data); } catch { continue; }
+      if (j.type === "content_block_delta" && j.delta?.type === "text_delta") {
+        yield j.delta.text;
+      } else if (j.type === "message_delta" && j.delta?.stop_reason) {
+        stopReason = j.delta.stop_reason;
+      }
+    }
+    if (stopReason === "refusal") throw new Error("安全上の理由で応答が拒否されました。別の文で試してください。");
+  }
+
+  async function* streamGemini(key, model, prompt, signal) {
+    const body = {
+      systemInstruction: { parts: [{ text: prompt.instruction }] },
+      contents: prompt.turns.map((t) => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.text }] })),
+      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+      // 入力がきつい言葉なので、ゆるめにしないと入力側で弾かれやすい
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+      ],
+    };
+    // Gemini 3 以降は既定で「medium」の思考を行い、短い変換には時間がかかりすぎるので最小限にする
+    if (/^gemini-(3|4)/.test(model)) {
+      body.generationConfig.thinkingConfig = { thinkingLevel: "low" };
+    }
+    const url = `${GEMINI_BASE}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify(body), signal,
+    });
+    if (!resp.ok) throw await readApiError(resp);
+    for await (const { data } of readSSE(resp)) {
+      let j;
+      try { j = JSON.parse(data); } catch { continue; }
+      if (j.promptFeedback?.blockReason) {
+        throw new Error(`入力が安全フィルタで弾かれました (${j.promptFeedback.blockReason})。別の文で試してください。`);
+      }
+      const cand = j.candidates?.[0];
+      for (const part of cand?.content?.parts || []) {
+        if (typeof part.text === "string" && !part.thought) yield part.text;
+      }
+      if (cand?.finishReason && cand.finishReason !== "STOP" && cand.finishReason !== "MAX_TOKENS") {
+        throw new Error(`生成が中断されました (${cand.finishReason})。別の文で試してください。`);
+      }
+    }
+  }
+
+  async function fetchApiModels() {
+    const key = currentApiKey();
+    if (!key) return;
+    const which = backend;
+    apiModelsBtn.disabled = true;
+    setApiStatus("モデル一覧を取得しています…");
+    try {
+      let list = [];
+      if (which === "claude") {
+        const resp = await fetch(`${CLAUDE_BASE}/models?limit=100`, { headers: claudeHeaders(key) });
+        if (!resp.ok) throw await readApiError(resp);
+        const j = await resp.json();
+        list = (j.data || []).map((m) => ({ id: m.id, label: m.display_name || m.id }));
+      } else {
+        const resp = await fetch(`${GEMINI_BASE}/models?pageSize=200`, { headers: { "x-goog-api-key": key } });
+        if (!resp.ok) throw await readApiError(resp);
+        const j = await resp.json();
+        list = (j.models || [])
+          .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+          .map((m) => ({ id: String(m.name || "").replace(/^models\//, ""), label: m.displayName || m.name }))
+          .filter((m) => /gemini/i.test(m.id) && !/embedding|image|tts|audio|live|native|transcribe|robotics|research|antigravity|computer-use/i.test(m.id));
+      }
+      if (!list.length) throw new Error("使えるモデルが見つかりませんでした。");
+      apiModels[which] = list;
+      renderApiModels();
+      setApiStatus(`${list.length} 件のモデルを取得しました。`, "ok");
+    } catch (err) {
+      console.error(err);
+      setApiStatus(friendlyApiError(err), "err");
+    } finally {
+      updateButtons();
+    }
+  }
+
+  function renderApiModels() {
+    if (!isApiBackend()) return;
+    const cfg = API_BACKENDS[backend];
+    const list = apiModels[backend] || cfg.defaultModels;
+    const saved = store.get(cfg.modelStore);
+    const prev = apiModelSelect.value;
+    apiModelSelect.innerHTML = "";
+    for (const m of list) {
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.label === m.id ? m.id : `${m.label} (${m.id})`;
+      apiModelSelect.appendChild(opt);
+    }
+    const want = [saved, cfg.defaultModels[0].id, prev, list[0].id].find((id) => id && list.some((m) => m.id === id));
+    if (want) apiModelSelect.value = want;
+  }
+
+  function applyBackendUI() {
+    const api = isApiBackend();
+    for (const b of backendSeg.querySelectorAll("button")) b.classList.toggle("active", b.dataset.backend === backend);
+    panelWebLLM.hidden = api;
+    panelAPI.hidden = !api;
+    $("footer-webllm").hidden = api;
+    $("footer-api").hidden = !api;
+    if (api) {
+      const cfg = API_BACKENDS[backend];
+      $("api-vendor").textContent = cfg.vendor;
+      $("api-vendor2").textContent = cfg.vendor;
+      $("footer-vendor").textContent = cfg.vendor;
+      apiKeyLink.textContent = cfg.keyLabel;
+      apiKeyLink.href = cfg.keyUrl;
+      apiKeyInput.value = apiKeys[backend] || "";
+      apiKeySave.checked = store.get(cfg.keyStore) !== null;
+      renderApiModels();
+      tagline.textContent = `きつい言葉を、かわいいねこ語に。このモードでは入力文が ${cfg.vendor} に送信されます。`;
+      setApiStatus(currentApiKey() ? "準備できました。文を入れて「にゃん訳する」を押してください。" : "API キーを入力してください。", currentApiKey() ? "ok" : "");
+    } else {
+      tagline.textContent = "きつい言葉を、かわいいねこ語に。入力文はブラウザの外に出ません。";
+    }
+    updateButtons();
+  }
+
+  function setBackend(next) {
+    if (generating || next === backend) return;
+    backend = next;
+    store.set(BACKEND_KEY, next);
+    applyBackendUI();
+  }
+
+  function onApiKeyInput() {
+    if (!isApiBackend()) return;
+    const cfg = API_BACKENDS[backend];
+    apiKeys[backend] = apiKeyInput.value;
+    if (apiKeySave.checked) store.set(cfg.keyStore, apiKeyInput.value);
+    setApiStatus(currentApiKey() ? "準備できました。文を入れて「にゃん訳する」を押してください。" : "API キーを入力してください。", currentApiKey() ? "ok" : "");
+    updateButtons();
+  }
+
+  function onApiKeySaveToggle() {
+    if (!isApiBackend()) return;
+    const cfg = API_BACKENDS[backend];
+    if (apiKeySave.checked) store.set(cfg.keyStore, apiKeyInput.value);
+    else store.del(cfg.keyStore);
+  }
+
+  function clearApiKey() {
+    if (!isApiBackend()) return;
+    const cfg = API_BACKENDS[backend];
+    apiKeys[backend] = "";
+    apiKeyInput.value = "";
+    store.del(cfg.keyStore);
+    apiKeySave.checked = false;
+    setApiStatus("API キーを消去しました。");
+    updateButtons();
+  }
+
+  // ---------- 変換 ----------
+  async function run() {
+    const text = input.value.trim();
+    if (!text || generating) return;
+    if (isApiBackend()) {
+      if (!currentApiKey() || !apiModelSelect.value) return;
+    } else if (!engine) {
+      return;
+    }
+    generating = true;
+    lastResult = "";
+    updateButtons();
+    paws.classList.add("show");
+    setOutput("", false);
+
+    const levelKey = levelSelect.value;
+    const level = LEVELS[levelKey] || LEVELS.normal;
+    const useApi = isApiBackend();
+    let acc = "";
+    // API 呼び出しの進行状況表示とタイムアウト
+    const started = performance.now();
+    const elapsed = () => Math.round((performance.now() - started) / 1000);
+    let gotFirst = false;
+    let tick = null, timeout = null;
+    try {
+      if (useApi) {
+        abortCtrl = new AbortController();
+        const key = currentApiKey();
+        const model = apiModelSelect.value;
+        const vendor = API_BACKENDS[backend].vendor;
+        const prompt = buildPrompt(text, levelKey);
+        setApiStatus(`${vendor} に送信中… (${model})`);
+        tick = setInterval(() => {
+          setApiStatus(`${vendor} ${gotFirst ? "から受信中" : "の応答を待っています"}… ${elapsed()} 秒 (${model})`);
+        }, 1000);
+        timeout = setTimeout(() => { if (!gotFirst && abortCtrl) abortCtrl.abort(new Error("timeout")); }, 90000);
+        const gen = backend === "claude"
+          ? streamClaude(key, model, prompt, abortCtrl.signal)
+          : streamGemini(key, model, prompt, abortCtrl.signal);
+        for await (const delta of gen) {
+          gotFirst = true;
+          acc += delta;
+          setOutput(acc, false);
+        }
+        clearInterval(tick); tick = null;
+        setApiStatus(`完了: ${elapsed()} 秒 (${model})`, "ok");
+      } else {
+        const stream = await engine.chat.completions.create({
+          messages: buildMessages(text, levelKey),
+          stream: true,
+          temperature: 0.7,
+          top_p: 0.9,
+          max_tokens: level.maxTokens,
+          frequency_penalty: 0.5,
+          presence_penalty: 0.3,
+          stop: ["入力:", "\n\n\n"],
+        });
+        for await (const chunk of stream) {
+          const delta = chunk.choices?.[0]?.delta?.content || "";
+          if (delta) {
+            acc += delta;
+            setOutput(acc, false);
+          }
+        }
+      }
+      const finalText = postProcess(acc);
+      lastResult = finalText;
+      setOutput(finalText || "（うまく変換できなかったにゃ…もう一度試してみてにゃ）", !finalText);
+    } catch (err) {
+      console.error(err);
+      if (acc) {
+        lastResult = postProcess(acc);
+        setOutput(lastResult, false);
+      } else {
+        setOutput(useApi ? friendlyApiError(err) : friendlyError(err), true);
+      }
+      if (useApi) {
+        const detail = err?.name === "AbortError" ? "停止しました。" : `エラー${err?.status ? " HTTP " + err.status : ""}: ${err?.message || err}`;
+        setApiStatus(detail, "err");
+      }
+    } finally {
+      if (tick) clearInterval(tick);
+      if (timeout) clearTimeout(timeout);
+      abortCtrl = null;
+      generating = false;
+      paws.classList.remove("show");
+      updateButtons();
+    }
+  }
+
+  function stop() {
+    if (!generating) return;
+    if (abortCtrl) {
+      abortCtrl.abort();
+    } else if (engine) {
+      try { engine.interruptGenerate(); } catch {}
+    }
+  }
+
+  async function copyResult() {
+    if (!lastResult) return;
+    try {
+      await navigator.clipboard.writeText(lastResult);
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = "コピーしたにゃ";
+      setTimeout(() => (copyBtn.textContent = orig), 1200);
+    } catch {
+      // クリップボードが使えない環境では選択状態にする
+      const range = document.createRange();
+      range.selectNodeContents(output);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
+  async function clearCache() {
+    const modelId = modelSelect.value;
+    if (!confirm(`「${modelId}」のキャッシュを削除します。次回は再ダウンロードになります。よろしいですか？`)) return;
+    try {
+      const lib = await ensureWebLLM();
+      if (engine && loadedModelId === modelId) {
+        await engine.unload();
+        loadedModelId = null;
+      }
+      await lib.deleteModelAllInfoInCache(modelId);
+      setStatus("キャッシュを削除しました。");
+      setProgress(0);
+      refreshCacheBadge();
+    } catch (err) {
+      console.error(err);
+      setStatus(friendlyError(err), "err");
+    } finally {
+      updateButtons();
+    }
+  }
+
+  // ---------- 初期化 ----------
+  function init() {
+    // モデル選択肢
+    for (const m of MODELS) {
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.label;
+      modelSelect.appendChild(opt);
+    }
+    const savedModel = store.get(STORAGE_KEY);
+    if (savedModel && MODELS.some((m) => m.id === savedModel)) modelSelect.value = savedModel;
+    const savedLevel = store.get(LEVEL_KEY);
+    if (savedLevel && LEVELS[savedLevel]) levelSelect.value = savedLevel;
+
+    // 例文チップ
+    for (const ex of EXAMPLES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = ex;
+      b.addEventListener("click", () => { input.value = ex; input.focus(); });
+      chips.appendChild(b);
+    }
+
+    // 保存済みの API キー / エンジン
+    for (const [name, cfg] of Object.entries(API_BACKENDS)) {
+      const k = store.get(cfg.keyStore);
+      if (k) apiKeys[name] = k;
+    }
+    const savedBackend = store.get(BACKEND_KEY);
+    if (savedBackend === "gemini" || savedBackend === "claude" || savedBackend === "webllm") backend = savedBackend;
+
+    // 環境チェック
+    if (location.protocol === "file:") $("banner-file").classList.add("show");
+    const hasGPU = !!navigator.gpu;
+    if (!hasGPU) {
+      $("banner-gpu").classList.add("show");
+      setStatus("WebGPU が使えないため、ブラウザ内モデルは読み込めません。Gemini / Claude API なら利用できます。", "err");
+      const b = backendSeg.querySelector('[data-backend="webllm"]');
+      b.disabled = true;
+      b.dataset.unavailable = "1";
+      if (backend === "webllm") backend = "gemini";
+    }
+
+    // イベント
+    backendSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-backend]");
+      if (b && !b.disabled) setBackend(b.dataset.backend);
+    });
+    apiKeyInput.addEventListener("input", onApiKeyInput);
+    apiKeyInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); fetchApiModels(); } });
+    apiKeySave.addEventListener("change", onApiKeySaveToggle);
+    apiKeyClear.addEventListener("click", clearApiKey);
+    apiModelsBtn.addEventListener("click", fetchApiModels);
+    apiModelSelect.addEventListener("change", () => {
+      if (isApiBackend()) store.set(API_BACKENDS[backend].modelStore, apiModelSelect.value);
+      updateButtons();
+    });
+    loadBtn.addEventListener("click", loadModel);
+    runBtn.addEventListener("click", run);
+    stopBtn.addEventListener("click", stop);
+    copyBtn.addEventListener("click", copyResult);
+    clearCacheBtn.addEventListener("click", clearCache);
+    levelSelect.addEventListener("change", () => store.set(LEVEL_KEY, levelSelect.value));
+    modelSelect.addEventListener("change", () => {
+      store.set(STORAGE_KEY, modelSelect.value);
+      setProgress(0);
+      if (loadedModelId && loadedModelId !== modelSelect.value) {
+        setStatus("モデルが変わりました。「モデルを読み込む」を押して切り替えてください。");
+      }
+      refreshCacheBadge();
+      updateButtons();
+    });
+    input.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        run();
+      }
+    });
+
+    applyBackendUI();
+
+    // すでにキャッシュ済みなら自動で読み込む (大きなダウンロードは勝手に始めない)
+    if (hasGPU) {
+      refreshCacheBadge().then((cached) => {
+        if (cached) loadModel();
+        else if (backend === "webllm") setStatus("モデルを選んで「モデルを読み込む」を押してください。初回はダウンロードに数分かかります。");
+      });
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
