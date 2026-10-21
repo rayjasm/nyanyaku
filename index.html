@@ -6,6 +6,10 @@
 <title>にゃん訳</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐱</text></svg>">
 <meta name="description" content="日本語の文の語尾だけを「にゃ」に変えるツール。既定ではブラウザ内で変換し、入力文は外に出ません。自分の Gemini / Claude API キーでも使えます。">
+<script>
+  // 保存されたテーマカラーを描画前に適用する (ちらつき防止)
+  try { const t = localStorage.getItem("nyanyaku.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}
+</script>
 <style>
   :root {
     --bg: #fff8ef;
@@ -22,8 +26,15 @@
     --shadow: 0 6px 24px rgba(120, 80, 60, 0.08);
     --radius: 16px;
   }
+  /* テーマカラー (ページ下部の ○ ボタンで切り替え、data-theme 属性で適用) */
+  /* 標準 (クリーム + ピンク) と同じく、淡い背景色に別系統の薄いアクセント色を合わせる */
+  :root[data-theme="pink"]   { --bg: #fff0f5; --border: #f6d6e2; --accent: #b9a0e8; --accent-strong: #9b80d6; --accent-soft: #efe6fb; --text: #3b2f36; --muted: #8e7b85; } /* ピンク + ラベンダー */
+  :root[data-theme="blue"]   { --bg: #eef5fd; --border: #d3e2f4; --accent: #f0a08e; --accent-strong: #d8826f; --accent-soft: #fde8e2; --text: #2b3240; --muted: #76808f; } /* 水色 + コーラル */
+  :root[data-theme="green"]  { --bg: #eef9f3; --border: #cfe8da; --accent: #f2b279; --accent-strong: #d9955a; --accent-soft: #fdeedd; --text: #2b3a33; --muted: #748a80; } /* ミント + アプリコット */
+  :root[data-theme="purple"] { --bg: #f5f1fd; --border: #ddd3f3; --accent: #7fcdb5; --accent-strong: #5fb29a; --accent-soft: #e2f5ee; --text: #342d44; --muted: #817a95; } /* ラベンダー + ミント */
+
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root, :root[data-theme] {
       --bg: #1f1a1c;
       --card: #2a2325;
       --text: #f4e9e6;
@@ -34,6 +45,10 @@
       --border: #3e3235;
       --shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
     }
+    :root[data-theme="pink"]   { --accent: #c3acf0; --accent-strong: #d8c6ff; --accent-soft: #3a2f4f; --bg: #231a20; --card: #2d2329; --border: #45353d; }
+    :root[data-theme="blue"]   { --accent: #f3ab9a; --accent-strong: #ffc4b5; --accent-soft: #4a2f2a; --bg: #191d24; --card: #22272f; --border: #343b47; --text: #e9eef6; --muted: #a2acbb; }
+    :root[data-theme="green"]  { --accent: #f1bb87; --accent-strong: #ffd2a6; --accent-soft: #4a3a28; --bg: #181f1b; --card: #212a24; --border: #33413a; --text: #e8f1ec; --muted: #9fb3a8; }
+    :root[data-theme="purple"] { --accent: #8fd6c0; --accent-strong: #aee8d6; --accent-soft: #24433a; --bg: #1c1924; --card: #26222f; --border: #3a3448; --text: #eee9f8; --muted: #aaa2bd; }
   }
   * { box-sizing: border-box; }
   /* hidden 属性は、display を指定したクラスより優先して非表示にする */
@@ -251,6 +266,18 @@
   .engine .hint { font-size: 0.74rem; margin-top: 4px; }
   .engine .check { font-size: 0.78rem; }
   .engine .badge { font-size: 0.7rem; }
+  /* テーマカラー切り替え */
+  .themes { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 14px; }
+  .themes button {
+    width: 22px; height: 22px; padding: 0;
+    border-radius: 50%;
+    background: var(--swatch);
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08) inset;
+    transition: transform 0.1s ease;
+  }
+  .themes button:hover { transform: scale(1.15); }
+  .themes button.active { border-color: var(--card); box-shadow: 0 0 0 2px var(--swatch); }
   .check { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .check input { accent-color: var(--accent); }
   .api-notice { margin: 0 0 12px; }
@@ -358,6 +385,14 @@
       <p>変換は <span id="footer-vendor">Google</span> の API で行われます。入力文はあなたのブラウザから直接 API に送信され、利用料金はあなたの API キーに課金されます。</p>
       <p>「ブラウザ内 (WebLLM)」に切り替えると、文をどこにも送らずに変換できます。</p>
     </div>
+    <div class="themes" id="themes" role="radiogroup" aria-label="テーマカラー">
+      <!-- 丸の色は各テーマの背景色を少し濃くしたもの -->
+      <button type="button" data-theme="default" style="--swatch:#f3b49c" title="標準" aria-label="標準"></button>
+      <button type="button" data-theme="pink"    style="--swatch:#f5b8cc" title="ピンク系" aria-label="ピンク系"></button>
+      <button type="button" data-theme="blue"    style="--swatch:#b7d0f3" title="ブルー系" aria-label="ブルー系"></button>
+      <button type="button" data-theme="green"   style="--swatch:#b5e0c8" title="グリーン系" aria-label="グリーン系"></button>
+      <button type="button" data-theme="purple"  style="--swatch:#cfc0ee" title="パープル系" aria-label="パープル系"></button>
+    </div>
   </footer>
 </div>
 
@@ -371,6 +406,7 @@
   ];
   const STORAGE_KEY = "nyanyaku.model";
   const BACKEND_KEY = "nyanyaku.backend";
+  const THEME_KEY = "nyanyaku.theme";
 
   // 外部 API (ユーザー自身のキーで、ブラウザから直接呼び出す)
   const API_BACKENDS = {
@@ -1086,8 +1122,28 @@
     }
   }
 
+  // ---------- テーマカラー ----------
+  function applyTheme(name) {
+    if (name === "default") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = name;
+    for (const b of $("themes").querySelectorAll("button")) {
+      const on = b.dataset.theme === name;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    }
+  }
+
   // ---------- 初期化 ----------
   function init() {
+    // テーマカラー
+    applyTheme(store.get(THEME_KEY) || "default");
+    $("themes").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-theme]");
+      if (!b) return;
+      store.set(THEME_KEY, b.dataset.theme);
+      applyTheme(b.dataset.theme);
+    });
+
     // モデル選択肢
     for (const m of MODELS) {
       const opt = document.createElement("option");
