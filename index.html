@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>にゃん訳</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐱</text></svg>">
-<meta name="description" content="きつい言葉をかわいいねこ語に言い換えるツール。既定ではブラウザ内で変換し、入力文は外に出ません。自分の Gemini / Claude API キーでも使えます。">
+<meta name="description" content="日本語の文の語尾だけを「にゃ」に変えるツール。既定ではブラウザ内で変換し、入力文は外に出ません。自分の Gemini / Claude API キーでも使えます。">
 <style>
   :root {
     --bg: #fff8ef;
@@ -167,9 +167,7 @@
   }
   .chip:hover { background: var(--accent); color: #fff; }
 
-  .controls { margin-top: 12px; justify-content: space-between; }
-  .controls label { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .controls label select { width: auto; padding: 6px 10px; }
+  .controls { margin-top: 12px; justify-content: flex-end; }
 
   .output {
     min-height: 90px;
@@ -219,7 +217,7 @@
 <div class="wrap">
   <header>
     <h1>にゃん訳 🐾</h1>
-    <p id="tagline">きつい言葉を、かわいいねこ語に。入力文はブラウザの外に出ません。</p>
+    <p id="tagline">文はそのまま、語尾だけねこ語に。入力文はブラウザの外に出ません。</p>
   </header>
 
   <div id="banner-file" class="banner warn">
@@ -278,16 +276,9 @@
 
   <section class="card">
     <h2>変換したい文</h2>
-    <textarea id="input" placeholder="例: お前マジで使えないな"></textarea>
+    <textarea id="input" placeholder="例: 今日は疲れたので早く帰ります"></textarea>
     <div class="chips" id="chips"></div>
     <div class="row controls">
-      <label>にゃ度
-        <select id="level">
-          <option value="light">ひかえめ</option>
-          <option value="normal" selected>ふつう</option>
-          <option value="max">全力</option>
-        </select>
-      </label>
       <div class="row">
         <button id="stop-btn" class="btn-ghost" disabled>停止</button>
         <button id="run-btn" class="btn-primary" disabled>にゃん訳する</button>
@@ -329,7 +320,6 @@
     { id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",   label: "Qwen2.5 0.5B (最軽量・約0.9GB・品質低め)" },
   ];
   const STORAGE_KEY = "nyanyaku.model";
-  const LEVEL_KEY = "nyanyaku.level";
   const BACKEND_KEY = "nyanyaku.backend";
 
   // 外部 API (ユーザー自身のキーで、ブラウザから直接呼び出す)
@@ -371,44 +361,46 @@
     "仕事が遅すぎて話にならない",
   ];
 
-  const BASE_INSTRUCTION = `あなたは「にゃん訳」という変換器です。入力された日本語の文を、かわいい「ねこ語」に言い換えてください。
+  const BASE_INSTRUCTION = `あなたは「にゃん訳」です。入力された日本語の文の語尾だけを、ねこ語の「にゃ」に変えます。
 
-ルール:
-- 文末は「にゃ」「にゃん」「にゃあ」などのねこ語にする
-- 乱暴・攻撃的・侮辱的な言葉は、やわらかくてポジティブな表現に置き換える（例:「バカ」→「おっちょこちょいさん」）
-- 元の文が伝えたい気持ち（不満・お願い・怒りなど）の核は残しつつ、相手を傷つけない言い方にする
-- 🐾 や 😺 などの絵文字は全体で1〜2個まで
-- 出力は変換後の文だけ。説明・前置き・引用符・「変換後:」などのラベルは絶対に付けない`;
+やること:
+- 文末や、読点で区切られた節の終わりを「にゃ」にする（例: 〜だよ → 〜だにゃ、〜な → 〜にゃ、〜です → 〜にゃ、〜ない → 〜ないにゃ、〜ます → 〜ますにゃ）
+- 禁止の「〜するな」「〜しないで」は「〜しないでにゃ」にする（「〜するにゃ」にすると意味が逆になる）
 
-  const LEVELS = {
-    light: {
-      extra: "言い換えは最小限にして、主に文末だけをねこ語にしてください。絵文字は付けなくてかまいません。",
-      examples: [
-        ["お前マジで使えないな", "きみ、ちょっと苦手なことがあるみたいだにゃ。"],
-        ["うるさい、黙れ", "ちょっと静かにしてほしいにゃ。"],
-        ["なんでこんな簡単なこともできないんだよ", "これ、どうしてできなかったのかにゃ？"],
-      ],
-      maxTokens: 200,
-    },
-    normal: {
-      extra: "",
-      examples: [
-        ["お前マジで使えないな", "きみ、ちょっと苦手なことがあるだけにゃ。いっしょにがんばるにゃ🐾"],
-        ["うるさい、黙れ", "ちょっとだけ静かにしてほしいにゃ。おひるねの時間にゃん😺"],
-        ["なんでこんな簡単なこともできないんだよ", "これ、むずかしかったのかにゃ？ いっしょにやればきっとできるにゃ"],
-      ],
-      maxTokens: 256,
-    },
-    max: {
-      extra: "すべての文末をねこ語にし、「しっぽをふりふり」「ごろにゃん」などのねこの仕草も一言添えて、とことんかわいくしてください。",
-      examples: [
-        ["お前マジで使えないな", "きみは苦手なことがあるだけにゃん！ ボクといっしょにがんばれば、きっとできるようになるにゃ〜🐾 しっぽをふりふりして応援してるにゃ！"],
-        ["うるさい、黙れ", "ちょっとだけ静かにしてほしいにゃん…おひるねしたい気分なのにゃ😺 ごろにゃんして待ってるにゃ〜"],
-        ["なんでこんな簡単なこともできないんだよ", "これ、むずかしかったのかにゃ？ だいじょうぶにゃ、いっしょにやればぜったいできるにゃん！ 前足でぽんぽんして応援するにゃ〜🐾"],
-      ],
-      maxTokens: 320,
-    },
-  };
+きまり:
+- 語尾以外の言葉、語順、意味はいっさい変えない。言葉を足さない、削らない、言い換えない
+- きつい言葉もそのまま残す。やわらげない
+- 絵文字は付けない（元の文にあるものは残す）
+- 出力は変えた文だけ。説明、前置き、「出力:」などのラベル、引用符は書かない`;
+
+  // few-shot の例。答えは「語尾だけ変えた元の文」になっていること
+  const FEWSHOT = [
+    ["お前マジで使えないな", "お前マジで使えないにゃ"],
+    ["仕事が遅すぎて話にならない", "仕事が遅すぎて話にならないにゃ"],
+    ["うるさい、黙れ", "うるさいにゃ、黙れにゃ"],
+    ["なんでこんな簡単なこともできないんだよ", "なんでこんな簡単なこともできないんだにゃ"],
+    ["二度と話しかけてくるな", "二度と話しかけてこないでにゃ"],
+    ["今日は疲れたので早く帰ります", "今日は疲れたので早く帰りますにゃ"],
+    ["は？ふざけんなよ", "は？ふざけないでにゃ"],
+    ["それは違うと思う", "それは違うと思うにゃ"],
+    ["おはよう", "おはようにゃ"],
+    ["いい加減にしろ", "いい加減にしろにゃ"],
+  ];
+  const MAX_TOKENS = 160;
+  // 文末に付ける絵文字。文ごとにどちらかを無作為に選ぶ
+  const TAIL_EMOJIS = ["🐈", "🐱"];
+  const pickEmoji = () => TAIL_EMOJIS[Math.floor(Math.random() * TAIL_EMOJIS.length)];
+
+  // 例の答えをそのまま返してきた (入力が違うのに) かどうか
+  function copiedExample(outText, inText) {
+    const norm = (x) => x.replace(/\s+/g, "");
+    return FEWSHOT.some(([q, a]) => norm(a) === norm(outText) && norm(q) !== norm(inText));
+  }
+  // 出力が入力とほぼ同じ (翻訳されていない)
+  function unchanged(outText, inText) {
+    const norm = (x) => x.replace(/[\s。！？!?、]/g, "");
+    return norm(outText) === norm(inText);
+  }
 
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
@@ -419,7 +411,6 @@
   const modelStatus = $("model-status");
   const input = $("input");
   const chips = $("chips");
-  const levelSelect = $("level");
   const runBtn = $("run-btn");
   const stopBtn = $("stop-btn");
   const copyBtn = $("copy-btn");
@@ -447,6 +438,7 @@
   let lastResult = "";
   let backend = "webllm";            // "webllm" | "gemini" | "claude"
   let abortCtrl = null;              // API 呼び出しの中断用
+  let stopRequested = false;         // 「停止」が押されたら再生成しない
   const apiKeys = { gemini: "", claude: "" };   // 保存しない場合はメモリ上だけ
   const apiModels = { gemini: null, claude: null }; // API から取得したモデル一覧
 
@@ -540,15 +532,30 @@
       .split(/(?<=[。！？!?\n])/u)
       .filter((s) => { const k = s.trim(); if (!k) return true; if (seen.has(k)) return false; seen.add(k); return true; })
       .join("");
-    return out.trim();
+    return addTailEmojis(out.trim());
+  }
+
+  // 各文の終わりに 🐈 / 🐱 をランダムに付ける。句点「。」は絵文字に置き換え、「！」「？」は残す。
+  // すでに絵文字で終わる文には付けない
+  function addTailEmojis(text) {
+    return text
+      .split(/(?<=[。！？!?\n])/u)
+      .map((seg) => {
+        const m = seg.match(/^(.*?)([。！？!?]*)(\n?)$/su);
+        if (!m) return seg;
+        const [, body, punct, nl] = m;
+        if (!body.trim()) return seg;
+        if (/\p{Extended_Pictographic}\uFE0F?\s*$/u.test(body)) return seg;
+        return body + punct.replace(/。/g, "") + pickEmoji() + nl;
+      })
+      .join("");
   }
 
   // API 用: システム指示と few-shot 例を分けて返す
-  function buildPrompt(text, levelKey) {
-    const level = LEVELS[levelKey] || LEVELS.normal;
-    const instruction = BASE_INSTRUCTION + (level.extra ? "\n- " + level.extra : "");
+  function buildPrompt(text) {
+    const instruction = BASE_INSTRUCTION;
     const turns = [];
-    for (const [q, a] of level.examples) {
+    for (const [q, a] of FEWSHOT) {
       turns.push({ role: "user", text: "入力: " + q });
       turns.push({ role: "assistant", text: a });
     }
@@ -556,11 +563,10 @@
     return { instruction, turns };
   }
 
-  function buildMessages(text, levelKey) {
-    const level = LEVELS[levelKey] || LEVELS.normal;
-    const instruction = BASE_INSTRUCTION + (level.extra ? "\n- " + level.extra : "");
+  function buildMessages(text) {
+    const instruction = BASE_INSTRUCTION;
     const messages = [];
-    level.examples.forEach(([q, a], i) => {
+    FEWSHOT.forEach(([q, a], i) => {
       const prefix = i === 0 ? instruction + "\n\n" : "";
       messages.push({ role: "user", content: prefix + "入力: " + q });
       messages.push({ role: "assistant", content: a });
@@ -835,10 +841,10 @@
       apiKeyInput.value = apiKeys[backend] || "";
       apiKeySave.checked = store.get(cfg.keyStore) !== null;
       renderApiModels();
-      tagline.textContent = `きつい言葉を、かわいいねこ語に。このモードでは入力文が ${cfg.vendor} に送信されます。`;
+      tagline.textContent = `文はそのまま、語尾だけねこ語に。このモードでは入力文が ${cfg.vendor} に送信されます。`;
       setApiStatus(currentApiKey() ? "準備できました。文を入れて「にゃん訳する」を押してください。" : "API キーを入力してください。", currentApiKey() ? "ok" : "");
     } else {
-      tagline.textContent = "きつい言葉を、かわいいねこ語に。入力文はブラウザの外に出ません。";
+      tagline.textContent = "文はそのまま、語尾だけねこ語に。入力文はブラウザの外に出ません。";
     }
     updateButtons();
   }
@@ -887,13 +893,12 @@
       return;
     }
     generating = true;
+    stopRequested = false;
     lastResult = "";
     updateButtons();
     paws.classList.add("show");
     setOutput("", false);
 
-    const levelKey = levelSelect.value;
-    const level = LEVELS[levelKey] || LEVELS.normal;
     const useApi = isApiBackend();
     let acc = "";
     // API 呼び出しの進行状況表示とタイムアウト
@@ -907,7 +912,7 @@
         const key = currentApiKey();
         const model = apiModelSelect.value;
         const vendor = API_BACKENDS[backend].vendor;
-        const prompt = buildPrompt(text, levelKey);
+        const prompt = buildPrompt(text);
         setApiStatus(`${vendor} に送信中… (${model})`);
         tick = setInterval(() => {
           setApiStatus(`${vendor} ${gotFirst ? "から受信中" : "の応答を待っています"}… ${elapsed()} 秒 (${model})`);
@@ -924,22 +929,37 @@
         clearInterval(tick); tick = null;
         setApiStatus(`完了: ${elapsed()} 秒 (${model})`, "ok");
       } else {
-        const stream = await engine.chat.completions.create({
-          messages: buildMessages(text, levelKey),
-          stream: true,
-          temperature: 0.7,
-          top_p: 0.9,
-          max_tokens: level.maxTokens,
-          frequency_penalty: 0.5,
-          presence_penalty: 0.3,
-          stop: ["入力:", "\n\n\n"],
-        });
-        for await (const chunk of stream) {
-          const delta = chunk.choices?.[0]?.delta?.content || "";
-          if (delta) {
-            acc += delta;
-            setOutput(acc, false);
+        const messages = buildMessages(text);
+        const generate = async (temperature, seed) => {
+          let out = "";
+          const stream = await engine.chat.completions.create({
+            messages,
+            stream: true,
+            temperature,
+            top_p: 0.9,
+            max_tokens: MAX_TOKENS,
+            // 「にゃ」の繰り返しを罰しないよう frequency_penalty は使わず、同じ文のループだけ軽く抑える
+            repetition_penalty: 1.1,
+            seed,
+            stop: ["入力:", "\n\n\n"],
+          });
+          for await (const chunk of stream) {
+            const delta = chunk.choices?.[0]?.delta?.content || "";
+            if (delta) {
+              out += delta;
+              setOutput(out, false);
+            }
           }
+          return out;
+        };
+        acc = await generate(0.2, undefined);
+        // 失敗パターンなら、温度を下げて一度だけやり直す
+        const bad = (t) => !postProcess(t) || copiedExample(t, text) || unchanged(t, text);
+        if (bad(acc) && !stopRequested) {
+          setStatus("もう一度ていねいに翻訳しています…");
+          const retry = await generate(0.1, Date.now() % 100000);
+          if (!bad(retry) || (postProcess(retry) && !postProcess(acc))) acc = retry;
+          setStatus("準備できました。文を入れて「にゃん訳する」を押してください。", "ok");
         }
       }
       const finalText = postProcess(acc);
@@ -969,6 +989,7 @@
 
   function stop() {
     if (!generating) return;
+    stopRequested = true;
     if (abortCtrl) {
       abortCtrl.abort();
     } else if (engine) {
@@ -1025,8 +1046,6 @@
     }
     const savedModel = store.get(STORAGE_KEY);
     if (savedModel && MODELS.some((m) => m.id === savedModel)) modelSelect.value = savedModel;
-    const savedLevel = store.get(LEVEL_KEY);
-    if (savedLevel && LEVELS[savedLevel]) levelSelect.value = savedLevel;
 
     // 例文チップ
     for (const ex of EXAMPLES) {
@@ -1077,7 +1096,6 @@
     stopBtn.addEventListener("click", stop);
     copyBtn.addEventListener("click", copyResult);
     clearCacheBtn.addEventListener("click", clearCache);
-    levelSelect.addEventListener("change", () => store.set(LEVEL_KEY, levelSelect.value));
     modelSelect.addEventListener("change", () => {
       store.set(STORAGE_KEY, modelSelect.value);
       setProgress(0);
