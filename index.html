@@ -36,6 +36,8 @@
     }
   }
   * { box-sizing: border-box; }
+  /* hidden 属性は、display を指定したクラスより優先して非表示にする */
+  [hidden] { display: none !important; }
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--bg);
@@ -44,7 +46,7 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
 
   header { text-align: center; margin-bottom: 20px; }
   header h1 { font-size: 2rem; margin: 0 0 4px; letter-spacing: 0.04em; }
@@ -167,7 +169,6 @@
   }
   .chip:hover { background: var(--accent); color: #fff; }
 
-  .controls { margin-top: 12px; justify-content: flex-end; }
 
   .output {
     min-height: 90px;
@@ -184,8 +185,37 @@
   .paws span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes paw { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 
-  .output-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .output-head h2 { margin: 0; }
+  /* DeepL 風の左右 2 ペイン */
+  .translate { padding: 0; overflow: hidden; }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; }
+  .pane { padding: 14px 16px 16px; min-width: 0; display: flex; flex-direction: column; }
+  .pane-out { border-left: 1px solid var(--border); background: var(--bg); }
+  .pane-head { display: flex; justify-content: space-between; align-items: center; min-height: 32px; margin-bottom: 6px; gap: 8px; }
+  .pane-title { font-size: 0.85rem; color: var(--muted); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .pane-head .hint { margin: 0; }
+  .translate textarea {
+    flex: 1;
+    min-height: 220px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 4px 2px;
+    font-size: 1.1rem;
+    line-height: 1.7;
+  }
+  .translate textarea:focus { box-shadow: none; }
+  .translate .output { flex: 1; min-height: 220px; line-height: 1.7; }
+  .translate .controls {
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .translate .controls .hint { margin: 0; }
+  @media (max-width: 720px) {
+    .panes { grid-template-columns: 1fr; }
+    .pane-out { border-left: none; border-top: 1px solid var(--border); }
+    .translate textarea, .translate .output { min-height: 140px; }
+  }
 
   footer { text-align: center; font-size: 0.8rem; color: var(--muted); margin-top: 24px; }
   footer p { margin: 4px 0; }
@@ -206,6 +236,21 @@
   .seg button { border: none; border-radius: 0; background: transparent; color: var(--muted); padding: 8px 14px; font-size: 0.88rem; font-weight: 600; }
   .seg button.active { background: var(--accent); color: #fff; }
   .seg button:disabled { opacity: 0.4; }
+  /* エンジン設定: 切り替えと設定を横並びにした小ぶりなバー */
+  .engine { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: flex-start; padding: 10px 12px; }
+  .engine .seg { margin: 0; flex: 0 0 auto; }
+  .engine .seg button { padding: 6px 11px; font-size: 0.8rem; }
+  .engine-panel { flex: 1 1 320px; min-width: 0; }
+  .engine select, .engine input[type="password"], .engine input[type="text"] { padding: 6px 10px; font-size: 0.9rem; }
+  .engine .btn-sm { padding: 6px 12px; font-size: 0.82rem; }
+  .engine .progress { height: 4px; margin-top: 6px; }
+  .engine .status { font-size: 0.78rem; margin-top: 4px; min-height: 0; }
+  .engine .field { margin-top: 6px; }
+  .engine .field > label { font-size: 0.78rem; margin-bottom: 2px; }
+  .engine .api-notice { padding: 7px 11px; font-size: 0.8rem; margin: 0 0 6px; border-radius: 10px; }
+  .engine .hint { font-size: 0.74rem; margin-top: 4px; }
+  .engine .check { font-size: 0.78rem; }
+  .engine .badge { font-size: 0.7rem; }
   .check { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .check input { accent-color: var(--accent); }
   .api-notice { margin: 0 0 12px; }
@@ -229,27 +274,26 @@
     macOS なら最新の Chrome / Edge、または Safari 17.4 以降でお試しください。Gemini / Claude API を使う場合は WebGPU は不要です。
   </div>
 
-  <section class="card">
-    <h2>エンジン</h2>
+  <section class="card engine">
     <div class="seg" id="backend-seg" role="tablist" aria-label="変換エンジン">
       <button type="button" data-backend="webllm" class="active">ブラウザ内 (WebLLM)</button>
       <button type="button" data-backend="gemini">Gemini API</button>
       <button type="button" data-backend="claude">Claude API</button>
     </div>
 
-    <div id="panel-webllm">
+    <div id="panel-webllm" class="engine-panel">
       <div class="row">
         <div class="grow">
           <select id="model-select" aria-label="使用するモデル"></select>
         </div>
         <span id="cache-badge" class="badge" hidden>ダウンロード済み</span>
-        <button id="load-btn" class="btn-primary">モデルを読み込む</button>
+        <button id="load-btn" class="btn-primary btn-sm">モデルを読み込む</button>
       </div>
       <div class="progress"><div id="progress-bar"></div></div>
       <div id="model-status" class="status">モデルを選んで「モデルを読み込む」を押してください。初回はダウンロードに数分かかります。</div>
     </div>
 
-    <div id="panel-api" hidden>
+    <div id="panel-api" class="engine-panel" hidden>
       <div class="banner warn show api-notice">
         <strong>このモードでは、入力文が <span id="api-vendor">Google</span> のサーバーに送信されます。</strong>
         API キーはあなたのブラウザから直接 <span id="api-vendor2">Google</span> に送られ、このページの作者を含む第三者には渡りません。
@@ -274,28 +318,34 @@
     </div>
   </section>
 
-  <section class="card">
-    <h2>変換したい文</h2>
-    <textarea id="input" placeholder="例: 今日は疲れたので早く帰ります"></textarea>
-    <div class="chips" id="chips"></div>
+  <section class="card translate">
+    <div class="panes">
+      <div class="pane pane-in">
+        <div class="pane-head">
+          <span class="pane-title">元の文</span>
+          <span id="char-count" class="hint"></span>
+        </div>
+        <textarea id="input" placeholder="例: 今日は疲れたので早く帰ります" aria-label="元の文"></textarea>
+        <div class="chips" id="chips"></div>
+      </div>
+      <div class="pane pane-out">
+        <div class="pane-head">
+          <span class="pane-title">にゃん訳</span>
+          <div class="row">
+            <span id="paws" class="paws" aria-hidden="true"><span>🐾</span><span>🐾</span><span>🐾</span></span>
+            <button id="copy-btn" class="btn-ghost btn-sm" disabled>コピー</button>
+          </div>
+        </div>
+        <div id="output" class="output placeholder" aria-live="polite">ここに、ねこ語になった文が出てきます。</div>
+      </div>
+    </div>
     <div class="row controls">
+      <div class="hint">Ctrl / ⌘ + Enter でも変換できます。</div>
       <div class="row">
         <button id="stop-btn" class="btn-ghost" disabled>停止</button>
         <button id="run-btn" class="btn-primary" disabled>にゃん訳する</button>
       </div>
     </div>
-    <div class="hint">Ctrl / ⌘ + Enter でも変換できます。</div>
-  </section>
-
-  <section class="card">
-    <div class="output-head">
-      <h2>にゃん訳 結果</h2>
-      <div class="row">
-        <span id="paws" class="paws" aria-hidden="true"><span>🐾</span><span>🐾</span><span>🐾</span></span>
-        <button id="copy-btn" class="btn-ghost btn-sm" disabled>コピー</button>
-      </div>
-    </div>
-    <div id="output" class="output placeholder">ここに、ねこ語になった文が出てきます。</div>
   </section>
 
   <footer>
@@ -428,6 +478,7 @@
   const apiModelsBtn = $("api-models-btn");
   const apiStatus = $("api-status");
   const tagline = $("tagline");
+  const charCount = $("char-count");
 
   // ---------- 状態 ----------
   let webllm = null;
@@ -589,7 +640,7 @@
       const lib = await ensureWebLLM();
       const cached = await lib.hasModelInCache(modelSelect.value);
       cacheBadge.hidden = !cached;
-      cacheBadge.classList.toggle("ok", cached);
+      cacheBadge.classList.add("ok");
       return cached;
     } catch {
       return false;
@@ -1053,7 +1104,7 @@
       b.type = "button";
       b.className = "chip";
       b.textContent = ex;
-      b.addEventListener("click", () => { input.value = ex; input.focus(); });
+      b.addEventListener("click", () => { input.value = ex; input.dispatchEvent(new Event("input")); input.focus(); });
       chips.appendChild(b);
     }
 
@@ -1111,6 +1162,9 @@
         run();
       }
     });
+    const updateCount = () => { charCount.textContent = input.value.length ? `${input.value.length} 文字` : ""; };
+    input.addEventListener("input", updateCount);
+    updateCount();
 
     applyBackendUI();
 
