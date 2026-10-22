@@ -7,6 +7,10 @@
 
 **🐾 公開ページ: <https://rayjasm.github.io/nyanyaku/>**
 
+## 使用例
+
+![にゃん訳の画面。左に「は？ふざけんなよ」、右に「はにゃ？🐈ふざけないでにゃ🐱」](docs/screenshot.png)
+
 ## 使い方
 
 1. <https://rayjasm.github.io/nyanyaku/> をブラウザで開きます。
@@ -103,7 +107,22 @@ API モード:
 ```
 nyanyaku/
 ├── index.html   # アプリ本体 (HTML / CSS / JS をすべて内包)
-└── README.md    # このファイル
+├── README.md    # このファイル
+├── LICENSE      # MIT ライセンス
+└── docs/
+    └── screenshot.png   # README 用のスクリーンショット
 ```
 
 ビルド工程はありません。`index.html` を編集すればそのまま反映されます。
+
+## ライセンス
+
+このリポジトリのコード (`index.html` など) は [MIT ライセンス](LICENSE) です。自由に利用・改変・再配布できます。
+
+利用している外部のものには、それぞれの提供元のライセンス・規約が適用されます。
+
+- [WebLLM](https://github.com/mlc-ai/web-llm): Apache License 2.0。CDN から実行時に読み込んでおり、このリポジトリには含めていません。
+- ブラウザ内モードで使うモデルは、ユーザーのブラウザが Hugging Face から直接ダウンロードします。利用には各モデルの規約が適用されます。
+  - Gemma 2 2B 日本語版: [Gemma Terms of Use](https://ai.google.dev/gemma/terms)
+  - Qwen2.5 0.5B / 1.5B: Apache License 2.0
+- Gemini API / Claude API は、ユーザー自身の API キーで呼び出します。Google および Anthropic の利用規約がユーザーに適用され、料金もユーザーのキーに課金されます。
