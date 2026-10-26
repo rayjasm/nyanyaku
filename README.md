@@ -70,7 +70,8 @@ WebGPU が使えない環境や、より高品質な変換がほしいときは�
 
 ブラウザ内モードの場合:
 
-- WebGPU が使えるブラウザ (macOS なら最新の Chrome / Edge、Safari 17.4 以降)
+- WebGPU が使えるブラウザ。Chrome / Edge (最新版) と Safari (macOS、最新版) で動作を確認しています
+  - Firefox は WebGPU に対応していますが、WebLLM が要求する上限 (`maxStorageBuffersPerShaderStage`) を満たさないため、ブラウザ内モードは現時点では動きません。Firefox では API モードを使ってください
 - 空きメモリ 2GB 程度 (既定のにゃんとぴあ Qwen3 0.6B)。Gemma 2 2B は 4GB 程度
 - 初回のみインターネット接続 (下記参照)
 
