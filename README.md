@@ -61,8 +61,8 @@ WebGPU が使えない環境や、より高品質な変換がほしいときは�
 
 | モデル | 目安サイズ | 特徴 |
 |---|---|---|
-| Gemma 2 2B 日本語版 (`gemma-2-2b-jpn-it-q4f16_1-MLC`) | 約 1.9GB | 既定。日本語の品質がいちばん良い |
-| にゃんとぴあ Qwen3 0.6B (`nyantopia-Qwen3-0.6B-q4f16_1-MLC`) | 約 340MB | [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) を語尾の言い換え向けに学習させたもの ([jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC)、Apache-2.0)。「二度と話しかけてくるな → 二度と話しかけてこないでにゃ」のように、命令や禁止のきつい語尾をやわらかくする。軽くて速い |
+| にゃんとぴあ Qwen3 0.6B (`nyantopia-Qwen3-0.6B-q4f16_1-MLC`) | 約 340MB | 既定。[Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) を語尾の言い換え向けに学習させたもの ([jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC)、Apache-2.0)。「二度と話しかけてくるな → 二度と話しかけてこないでにゃ」のように、命令や禁止のきつい語尾をやわらかくする。軽くて速い |
+| Gemma 2 2B 日本語版 (`gemma-2-2b-jpn-it-q4f16_1-MLC`) | 約 1.9GB | 汎用モデル。語尾の言い換えはせず「にゃ」を付けるだけだが、日本語が自然 |
 
 モデルを切り替えたら、もう一度「モデルを読み込む」を押してください。
 
@@ -71,7 +71,7 @@ WebGPU が使えない環境や、より高品質な変換がほしいときは�
 ブラウザ内モードの場合:
 
 - WebGPU が使えるブラウザ (macOS なら最新の Chrome / Edge、Safari 17.4 以降)
-- 空きメモリ 4GB 程度 (2B モデルの場合)
+- 空きメモリ 2GB 程度 (既定のにゃんとぴあ Qwen3 0.6B)。Gemma 2 2B は 4GB 程度
 - 初回のみインターネット接続 (下記参照)
 
 API モードの場合は WebGPU は不要で、インターネット接続と API キーがあれば動きます。
@@ -83,7 +83,7 @@ API モードの場合は WebGPU は不要で、インターネット接続と A
 - **入力した文は一切送信されません。** 変換はすべてブラウザ内で行われます。
 - **初回のみ**、次の 2 つをインターネットからダウンロードします。
   - WebLLM ライブラリ本体 (jsDelivr CDN)
-  - モデルファイル (Hugging Face、約 1〜2GB)
+  - モデルファイル (Hugging Face。既定のにゃんとぴあ Qwen3 0.6B は約 340MB、Gemma 2 2B は約 1.9GB)
 - ダウンロードしたモデルはブラウザのキャッシュ (Cache API) に保存され、2 回目以降はオフラインでも動きます。
 
 API モード:

@@ -400,8 +400,8 @@
   // ---------- 設定 ----------
   const WEBLLM_URL = "https://esm.run/@mlc-ai/web-llm@0.2.86";
   const MODELS = [
-    { id: "gemma-2-2b-jpn-it-q4f16_1-MLC",       label: "Gemma 2 2B 日本語版 (おすすめ・約1.9GB)" },
-    { id: "nyantopia-Qwen3-0.6B-q4f16_1-MLC",    label: "にゃんとぴあ Qwen3 0.6B (語尾の言い換えを学習済み・軽量・約340MB)" },
+    { id: "nyantopia-Qwen3-0.6B-q4f16_1-MLC",    label: "にゃんとぴあ Qwen3 0.6B (おすすめ・語尾の言い換えを学習済み・約340MB)" },
+    { id: "gemma-2-2b-jpn-it-q4f16_1-MLC",       label: "Gemma 2 2B 日本語版 (汎用・約1.9GB)" },
   ];
   // WebLLM の組み込み設定にない独自モデル。base と同じアーキテクチャ・量子化なので、wasm は base のものを流用し、重みの URL だけ差し替える
   const CUSTOM_MODELS = {
