@@ -62,8 +62,7 @@ WebGPU が使えない環境や、より高品質な変換がほしいときは�
 | モデル | 目安サイズ | 特徴 |
 |---|---|---|
 | Gemma 2 2B 日本語版 (`gemma-2-2b-jpn-it-q4f16_1-MLC`) | 約 1.9GB | 既定。日本語の品質がいちばん良い |
-| Qwen2.5 1.5B (`Qwen2.5-1.5B-Instruct-q4f16_1-MLC`) | 約 1.6GB | 軽量。日本語もそこそこ出る |
-| Qwen2.5 0.5B (`Qwen2.5-0.5B-Instruct-q4f16_1-MLC`) | 約 0.9GB | 最軽量。低スペック機向け。品質は落ちる |
+| にゃんとぴあ Qwen3 0.6B (`nyantopia-Qwen3-0.6B-q4f16_1-MLC`) | 約 340MB | [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) を語尾の言い換え向けに学習させたもの ([jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC)、Apache-2.0)。「二度と話しかけてくるな → 二度と話しかけてこないでにゃ」のように、命令や禁止のきつい語尾をやわらかくする。軽くて速い |
 
 モデルを切り替えたら、もう一度「モデルを読み込む」を押してください。
 
@@ -124,5 +123,5 @@ nyanyaku/
 - [WebLLM](https://github.com/mlc-ai/web-llm): Apache License 2.0。CDN から実行時に読み込んでおり、このリポジトリには含めていません。
 - ブラウザ内モードで使うモデルは、ユーザーのブラウザが Hugging Face から直接ダウンロードします。利用には各モデルの規約が適用されます。
   - Gemma 2 2B 日本語版: [Gemma Terms of Use](https://ai.google.dev/gemma/terms)
-  - Qwen2.5 0.5B / 1.5B: Apache License 2.0
+  - にゃんとぴあ Qwen3 0.6B ([jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC)): Apache License 2.0 (ベースモデルの [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) と同じ)
 - Gemini API / Claude API は、ユーザー自身の API キーで呼び出します。Google および Anthropic の利用規約がユーザーに適用され、料金もユーザーのキーに課金されます。

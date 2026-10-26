@@ -401,9 +401,21 @@
   const WEBLLM_URL = "https://esm.run/@mlc-ai/web-llm@0.2.86";
   const MODELS = [
     { id: "gemma-2-2b-jpn-it-q4f16_1-MLC",       label: "Gemma 2 2B 日本語版 (おすすめ・約1.9GB)" },
-    { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",   label: "Qwen2.5 1.5B (軽量・約1.6GB)" },
-    { id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",   label: "Qwen2.5 0.5B (最軽量・約0.9GB・品質低め)" },
+    { id: "nyantopia-Qwen3-0.6B-q4f16_1-MLC",    label: "にゃんとぴあ Qwen3 0.6B (語尾の言い換えを学習済み・軽量・約340MB)" },
   ];
+  // WebLLM の組み込み設定にない独自モデル。base と同じアーキテクチャ・量子化なので、wasm は base のものを流用し、重みの URL だけ差し替える
+  const CUSTOM_MODELS = {
+    "nyantopia-Qwen3-0.6B-q4f16_1-MLC": {
+      base: "Qwen3-0.6B-q4f16_1-MLC",
+      model: "https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC",
+    },
+  };
+  const isTunedModel = (id) => id in CUSTOM_MODELS;
+  // 学習済みモデル用の指示(学習時の system プロンプトと同じ)。言い換えを学習済みなので few-shot は付けない
+  const TUNED_INSTRUCTION =
+    "あなたは日本語の文を「ねこ語」にする変換器です。" +
+    "文の内容は変えず、文末の命令や禁止、きつい断定だけをやわらかい形にして、文の終わりに「にゃ」を付けてください。" +
+    "ふつうの文はそのまま写して「にゃ」を付けるだけにします。出力は変換した文だけを書きます。";
   const STORAGE_KEY = "nyanyaku.model";
   const BACKEND_KEY = "nyanyaku.backend";
   const THEME_KEY = "nyanyaku.theme";
@@ -578,6 +590,9 @@
     if (/shader-f16|f16/i.test(msg)) {
       return "この GPU / ブラウザは f16 シェーダーに対応していないようです。別のモデルを試すか、Chrome を最新にしてください。";
     }
+    if (/Cannot initialize runtime/i.test(msg)) {
+      return "このブラウザの WebGPU では動かせません (" + msg + ")。Chrome / Edge で開いてください。";
+    }
     if (/out of memory|OOM|buffer size|exceeds/i.test(msg)) {
       return "GPU メモリが足りないようです。より軽量なモデルに切り替えてみてください。";
     }
@@ -590,6 +605,8 @@
   // LLM の出力がルールから外れたときの保険
   function postProcess(text) {
     let t = text.trim();
+    // Qwen3 は thinking を無効にしても先頭に空の <think></think> を付けるので外す
+    t = t.replace(/<think>[\s\S]*?<\/think>/gu, "").trim();
     // 先頭のラベルを除去
     t = t.replace(/^(変換後|出力|ねこ語|にゃん訳|結果)\s*[:：]\s*/u, "");
     // 全体を囲む引用符を除去
@@ -651,6 +668,12 @@
   }
 
   function buildMessages(text) {
+    if (isTunedModel(loadedModelId)) {
+      return [
+        { role: "system", content: TUNED_INSTRUCTION },
+        { role: "user", content: text },
+      ];
+    }
     const instruction = BASE_INSTRUCTION;
     const messages = [];
     FEWSHOT.forEach(([q, a], i) => {
@@ -670,11 +693,21 @@
     return webllm;
   }
 
+  // 組み込みのモデル一覧に独自モデルを足した設定
+  function buildAppConfig(lib) {
+    const extra = Object.entries(CUSTOM_MODELS).map(([id, c]) => {
+      const base = lib.prebuiltAppConfig.model_list.find((m) => m.model_id === c.base);
+      if (!base) throw new Error(`WebLLM の設定に ${c.base} がありません`);
+      return { ...base, model_id: id, model: c.model };
+    });
+    return { ...lib.prebuiltAppConfig, model_list: [...lib.prebuiltAppConfig.model_list, ...extra] };
+  }
+
   async function refreshCacheBadge() {
     cacheBadge.hidden = true;
     try {
       const lib = await ensureWebLLM();
-      const cached = await lib.hasModelInCache(modelSelect.value);
+      const cached = await lib.hasModelInCache(modelSelect.value, buildAppConfig(lib));
       cacheBadge.hidden = !cached;
       cacheBadge.classList.add("ok");
       return cached;
@@ -695,10 +728,12 @@
         setProgress(p.progress || 0);
         setStatus(p.text || "読み込み中…");
       };
+      const appConfig = buildAppConfig(lib);
       if (!engine) {
-        engine = await lib.CreateMLCEngine(modelId, { initProgressCallback });
+        engine = await lib.CreateMLCEngine(modelId, { initProgressCallback, appConfig });
       } else {
         engine.setInitProgressCallback(initProgressCallback);
+        engine.setAppConfig(appConfig);
         await engine.reload(modelId);
       }
       loadedModelId = modelId;
@@ -1029,6 +1064,8 @@
             repetition_penalty: 1.1,
             seed,
             stop: ["入力:", "\n\n\n"],
+            // Qwen3 の thinking モードを無効にする(他のモデルは無視する)
+            extra_body: { enable_thinking: false },
           });
           for await (const chunk of stream) {
             const delta = chunk.choices?.[0]?.delta?.content || "";
@@ -1110,7 +1147,7 @@
         await engine.unload();
         loadedModelId = null;
       }
-      await lib.deleteModelAllInfoInCache(modelId);
+      await lib.deleteModelAllInfoInCache(modelId, buildAppConfig(lib));
       setStatus("キャッシュを削除しました。");
       setProgress(0);
       refreshCacheBadge();
