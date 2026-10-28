@@ -400,22 +400,25 @@
   // ---------- 設定 ----------
   const WEBLLM_URL = "https://esm.run/@mlc-ai/web-llm@0.2.86";
   const MODELS = [
-    { id: "nyantopia-Qwen3-0.6B-q4f16_1-MLC",    label: "にゃんとぴあ Qwen3 0.6B (おすすめ・語尾の言い換えを学習済み・約340MB)" },
+    { id: "nyantopia-llm-jp-3-150m-q4f16_1-MLC", label: "にゃんとぴあ llm-jp-3 150M (おすすめ・語尾の言い換えを学習済み・約90MB)" },
     { id: "gemma-2-2b-jpn-it-q4f16_1-MLC",       label: "Gemma 2 2B 日本語版 (汎用・約1.9GB)" },
   ];
-  // WebLLM の組み込み設定にない独自モデル。base と同じアーキテクチャ・量子化なので、wasm は base のものを流用し、重みの URL だけ差し替える
+  // WebLLM の組み込み設定にない独自モデル。model は重みの置き場所、lib はモデル実行用の wasm
+  // (WebLLM と同じ版の TVM でこのモデル向けにコンパイルしたもの。重みと同じリポジトリの lib/ に置いてある)。
+  // prompt が "llmjp" のモデルは、学習時と同じ 1 つの文字列を completions API に渡す
   const CUSTOM_MODELS = {
-    "nyantopia-Qwen3-0.6B-q4f16_1-MLC": {
-      base: "Qwen3-0.6B-q4f16_1-MLC",
-      model: "https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC",
+    "nyantopia-llm-jp-3-150m-q4f16_1-MLC": {
+      model: "https://huggingface.co/jasmray/nyantopia-llm-jp-3-150m-q4f16_1-MLC",
+      lib: "https://huggingface.co/jasmray/nyantopia-llm-jp-3-150m-q4f16_1-MLC/resolve/main/lib/nyantopia-llm-jp-3-150m-q4f16_1_cs1k-webgpu.wasm",
+      vramMB: 300,
+      prompt: "llmjp",
     },
   };
-  const isTunedModel = (id) => id in CUSTOM_MODELS;
-  // 学習済みモデル用の指示(学習時の system プロンプトと同じ)。言い換えを学習済みなので few-shot は付けない
-  const TUNED_INSTRUCTION =
-    "あなたは日本語の文を「ねこ語」にする変換器です。" +
-    "文の内容は変えず、文末の命令や禁止、きつい断定だけをやわらかい形にして、文の終わりに「にゃ」を付けてください。" +
-    "ふつうの文はそのまま写して「にゃ」を付けるだけにします。出力は変換した文だけを書きます。";
+  const promptFormatOf = (id) => CUSTOM_MODELS[id]?.prompt ?? "chat";
+  // llm-jp 形式のモデル向けのプロンプト。学習時はこの文字列全体を 1 つの文字列として符号化している(BOS は先頭の <s> の 1 個だけ)ので、
+  // chat API ではなく completions API にそのまま渡して、学習時と同じトークン列にする
+  const buildLlmjpPrompt = (text) =>
+    `<s>以下は、タスクを説明する指示です。要求を適切に満たす応答を書きなさい。\n\n### 指示:\n${text}\n\n### 応答:\n`;
   const STORAGE_KEY = "nyanyaku.model";
   const BACKEND_KEY = "nyanyaku.backend";
   const THEME_KEY = "nyanyaku.theme";
@@ -605,7 +608,7 @@
   // LLM の出力がルールから外れたときの保険
   function postProcess(text) {
     let t = text.trim();
-    // Qwen3 は thinking を無効にしても先頭に空の <think></think> を付けるので外す
+    // thinking モードを持つモデルが先頭に付ける空の <think></think> を外す
     t = t.replace(/<think>[\s\S]*?<\/think>/gu, "").trim();
     // 先頭のラベルを除去
     t = t.replace(/^(変換後|出力|ねこ語|にゃん訳|結果)\s*[:：]\s*/u, "");
@@ -668,12 +671,6 @@
   }
 
   function buildMessages(text) {
-    if (isTunedModel(loadedModelId)) {
-      return [
-        { role: "system", content: TUNED_INSTRUCTION },
-        { role: "user", content: text },
-      ];
-    }
     const instruction = BASE_INSTRUCTION;
     const messages = [];
     FEWSHOT.forEach(([q, a], i) => {
@@ -693,13 +690,16 @@
     return webllm;
   }
 
-  // 組み込みのモデル一覧に独自モデルを足した設定
+  // 組み込みのモデル一覧に独自モデルを足した設定(値は組み込みの Qwen3-0.6B の設定にならう)
   function buildAppConfig(lib) {
-    const extra = Object.entries(CUSTOM_MODELS).map(([id, c]) => {
-      const base = lib.prebuiltAppConfig.model_list.find((m) => m.model_id === c.base);
-      if (!base) throw new Error(`WebLLM の設定に ${c.base} がありません`);
-      return { ...base, model_id: id, model: c.model };
-    });
+    const extra = Object.entries(CUSTOM_MODELS).map(([id, c]) => ({
+      model: c.model,
+      model_id: id,
+      model_lib: c.lib,
+      vram_required_MB: c.vramMB,
+      low_resource_required: true,
+      overrides: { context_window_size: 4096 },
+    }));
     return { ...lib.prebuiltAppConfig, model_list: [...lib.prebuiltAppConfig.model_list, ...extra] };
   }
 
@@ -1054,8 +1054,7 @@
         const messages = buildMessages(text);
         const generate = async (temperature, seed) => {
           let out = "";
-          const stream = await engine.chat.completions.create({
-            messages,
+          const common = {
             stream: true,
             temperature,
             top_p: 0.9,
@@ -1063,12 +1062,20 @@
             // 「にゃ」の繰り返しを罰しないよう frequency_penalty は使わず、同じ文のループだけ軽く抑える
             repetition_penalty: 1.1,
             seed,
-            stop: ["入力:", "\n\n\n"],
-            // Qwen3 の thinking モードを無効にする(他のモデルは無視する)
-            extra_body: { enable_thinking: false },
-          });
+          };
+          const llmjp = promptFormatOf(loadedModelId) === "llmjp";
+          const stream = llmjp
+            // 答えの後は </s> で止まる。止まらずに次の「### 指示:」を書き始めたときの保険に stop を付ける
+            ? await engine.completions.create({ ...common, prompt: buildLlmjpPrompt(text), stop: ["\n\n", "### 指示"] })
+            : await engine.chat.completions.create({
+                ...common,
+                messages,
+                stop: ["入力:", "\n\n\n"],
+                // thinking モードを持つモデル向けに無効にする(他のモデルは無視する)
+                extra_body: { enable_thinking: false },
+              });
           for await (const chunk of stream) {
-            const delta = chunk.choices?.[0]?.delta?.content || "";
+            const delta = (llmjp ? chunk.choices?.[0]?.text : chunk.choices?.[0]?.delta?.content) || "";
             if (delta) {
               out += delta;
               setOutput(out, false);

@@ -61,7 +61,7 @@ WebGPU が使えない環境や、より高品質な変換がほしいときは�
 
 | モデル | 目安サイズ | 特徴 |
 |---|---|---|
-| にゃんとぴあ Qwen3 0.6B (`nyantopia-Qwen3-0.6B-q4f16_1-MLC`) | 約 340MB | 既定。[Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) を語尾の言い換え向けに学習させたもの ([jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC)、Apache-2.0)。「二度と話しかけてくるな → 二度と話しかけてこないでにゃ」のように、命令や禁止のきつい語尾をやわらかくする。軽くて速い |
+| にゃんとぴあ llm-jp-3 150M (`nyantopia-llm-jp-3-150m-q4f16_1-MLC`) | 約 90MB | 既定。日本語専用の [llm-jp-3-150m-instruct3](https://huggingface.co/llm-jp/llm-jp-3-150m-instruct3) を語尾の言い換え向けに学習させたもの ([jasmray/nyantopia-llm-jp-3-150m-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-llm-jp-3-150m-q4f16_1-MLC)、Apache-2.0)。「二度と話しかけてくるな → 二度と話しかけてこないでにゃ」のように、命令や禁止のきつい語尾をやわらかくする。小さくて速い(1 文 1 秒前後) |
 | Gemma 2 2B 日本語版 (`gemma-2-2b-jpn-it-q4f16_1-MLC`) | 約 1.9GB | 汎用モデル。語尾の言い換えはせず「にゃ」を付けるだけだが、日本語が自然 |
 
 モデルを切り替えたら、もう一度「モデルを読み込む」を押してください。
@@ -72,7 +72,7 @@ WebGPU が使えない環境や、より高品質な変換がほしいときは�
 
 - WebGPU が使えるブラウザ。Chrome / Edge (最新版) と Safari (macOS、最新版) で動作を確認しています
   - Firefox は WebGPU に対応していますが、WebLLM が要求する上限 (`maxStorageBuffersPerShaderStage`) を満たさないため、ブラウザ内モードは現時点では動きません。Firefox では API モードを使ってください
-- 空きメモリ 2GB 程度 (既定のにゃんとぴあ Qwen3 0.6B)。Gemma 2 2B は 4GB 程度
+- 空きメモリ 1GB 程度 (既定のにゃんとぴあ llm-jp-3 150M)。Gemma 2 2B は 4GB 程度
 - 初回のみインターネット接続 (下記参照)
 
 API モードの場合は WebGPU は不要で、インターネット接続と API キーがあれば動きます。
@@ -84,7 +84,7 @@ API モードの場合は WebGPU は不要で、インターネット接続と A
 - **入力した文は一切送信されません。** 変換はすべてブラウザ内で行われます。
 - **初回のみ**、次の 2 つをインターネットからダウンロードします。
   - WebLLM ライブラリ本体 (jsDelivr CDN)
-  - モデルファイル (Hugging Face。既定のにゃんとぴあ Qwen3 0.6B は約 340MB、Gemma 2 2B は約 1.9GB)
+  - モデルファイル (Hugging Face。既定のにゃんとぴあ llm-jp-3 150M は約 90MB、Gemma 2 2B は約 1.9GB)。にゃんとぴあのモデルは、実行用の WebAssembly (約 6MB、同じリポジトリの `lib/`) も一緒にダウンロードします
 - ダウンロードしたモデルはブラウザのキャッシュ (Cache API) に保存され、2 回目以降はオフラインでも動きます。
 
 API モード:
@@ -124,5 +124,5 @@ nyanyaku/
 - [WebLLM](https://github.com/mlc-ai/web-llm): Apache License 2.0。CDN から実行時に読み込んでおり、このリポジトリには含めていません。
 - ブラウザ内モードで使うモデルは、ユーザーのブラウザが Hugging Face から直接ダウンロードします。利用には各モデルの規約が適用されます。
   - Gemma 2 2B 日本語版: [Gemma Terms of Use](https://ai.google.dev/gemma/terms)
-  - にゃんとぴあ Qwen3 0.6B ([jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-Qwen3-0.6B-q4f16_1-MLC)): Apache License 2.0 (ベースモデルの [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) と同じ)
+  - にゃんとぴあ llm-jp-3 150M ([jasmray/nyantopia-llm-jp-3-150m-q4f16_1-MLC](https://huggingface.co/jasmray/nyantopia-llm-jp-3-150m-q4f16_1-MLC)): Apache License 2.0 (ベースモデルの [llm-jp-3-150m-instruct3](https://huggingface.co/llm-jp/llm-jp-3-150m-instruct3) と同じ)
 - Gemini API / Claude API は、ユーザー自身の API キーで呼び出します。Google および Anthropic の利用規約がユーザーに適用され、料金もユーザーのキーに課金されます。
