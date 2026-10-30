@@ -420,6 +420,8 @@
   const buildLlmjpPrompt = (text) =>
     `<s>以下は、タスクを説明する指示です。要求を適切に満たす応答を書きなさい。\n\n### 指示:\n${text}\n\n### 応答:\n`;
   const STORAGE_KEY = "nyanyaku.model";
+  // モデルごとに、最後に読み込んだ重みのコミット ID(Hugging Face の X-Repo-Commit)。JSON で保存する
+  const REVISION_KEY = "nyanyaku.modelRevisions";
   const BACKEND_KEY = "nyanyaku.backend";
   const THEME_KEY = "nyanyaku.theme";
 
@@ -716,6 +718,44 @@
     }
   }
 
+  const revisions = () => {
+    try { return JSON.parse(store.get(REVISION_KEY) || "{}") || {}; } catch { return {}; }
+  };
+  const setRevision = (modelId, revision) => {
+    const r = revisions();
+    if (revision) r[modelId] = revision; else delete r[modelId];
+    store.set(REVISION_KEY, JSON.stringify(r));
+  };
+
+  // Hugging Face 上の重みが更新されていたら、キャッシュした古い重みを捨てる(にゃんとぴあと同じ仕組み)。
+  // WebLLM は URL をキーに重みをキャッシュするので、同じファイル名で上げ直した重みはそのままでは届かない。
+  // 重みの索引ファイルを HEAD で取り、応答の X-Repo-Commit を前回読み込んだときの値と比べる。
+  // 通信できないときやヘッダーがないときは何もせず、キャッシュのまま読み込む
+  async function dropCacheIfWeightsChanged(lib, modelId, appConfig) {
+    const record = appConfig.model_list.find((m) => m.model_id === modelId);
+    if (!record) return;
+    let commit;
+    try {
+      const res = await fetch(`${record.model}/resolve/main/tensor-cache.json`, { method: "HEAD", cache: "no-store" });
+      commit = res.ok ? res.headers.get("x-repo-commit") : null;
+    } catch {
+      return;
+    }
+    if (!commit) return;
+    const prev = revisions()[modelId];
+    if (prev === commit) return;
+    if (prev) {
+      setStatus("モデルが更新されているので、古いキャッシュを削除しています…");
+      try {
+        await lib.deleteModelAllInfoInCache(modelId, appConfig);
+      } catch (err) {
+        console.warn("古いモデルのキャッシュ削除に失敗:", err);
+        return; // 古いまま使い、次回また試す
+      }
+    }
+    setRevision(modelId, commit);
+  }
+
   async function loadModel() {
     if (loading) return;
     const modelId = modelSelect.value;
@@ -729,6 +769,7 @@
         setStatus(p.text || "読み込み中…");
       };
       const appConfig = buildAppConfig(lib);
+      await dropCacheIfWeightsChanged(lib, modelId, appConfig);
       if (!engine) {
         engine = await lib.CreateMLCEngine(modelId, { initProgressCallback, appConfig });
       } else {
@@ -1155,6 +1196,7 @@
         loadedModelId = null;
       }
       await lib.deleteModelAllInfoInCache(modelId, buildAppConfig(lib));
+      setRevision(modelId, undefined);
       setStatus("キャッシュを削除しました。");
       setProgress(0);
       refreshCacheBadge();
